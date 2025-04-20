@@ -1,0 +1,1 @@
+// GPT-Modul für Sprachinterface

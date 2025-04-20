@@ -1,0 +1,1 @@
+// Umfeldanalyse (News, RSI, Makro)

@@ -1,0 +1,1 @@
+// Scoring-Modell mit Ursachenbewertung

@@ -1,0 +1,1 @@
+export const API_KEYS = { OPENAI: 'DEIN_OPENAI_KEY' };
