@@ -30,14 +30,14 @@ def _make_agent(
 
 
 def _trade_dates(n: int = 50) -> list[str]:
-    """50 trade dates spread across 6 months."""
+    """Generate n trade dates spread across multiple months (all dates are valid)."""
     dates = (
-        [f"2023-01-{d:02d}" for d in range(1, 9)]
-        + [f"2023-02-{d:02d}" for d in range(1, 9)]
-        + [f"2023-03-{d:02d}" for d in range(1, 9)]
-        + [f"2023-04-{d:02d}" for d in range(1, 9)]
-        + [f"2023-05-{d:02d}" for d in range(1, 9)]
-        + [f"2023-06-{d:02d}" for d in range(1, 11)]
+        [f"2023-01-{d:02d}" for d in range(1, 9)]   # Jan 01–08
+        + [f"2023-02-{d:02d}" for d in range(1, 9)]  # Feb 01–08 (always valid)
+        + [f"2023-03-{d:02d}" for d in range(1, 9)]  # Mar 01–08
+        + [f"2023-04-{d:02d}" for d in range(1, 9)]  # Apr 01–08
+        + [f"2023-05-{d:02d}" for d in range(1, 9)]  # May 01–08
+        + [f"2023-06-{d:02d}" for d in range(1, 11)] # Jun 01–10
     )
     return dates[:n]
 
