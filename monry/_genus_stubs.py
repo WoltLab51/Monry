@@ -20,10 +20,9 @@ from typing import Any, Callable, Dict, List, Optional
 class AgentState(enum.Enum):
     """Lifecycle-Zustände eines Agents."""
 
-    IDLE = "idle"
-    INITIALIZING = "initializing"
+    INITIALIZED = "initialized"
     RUNNING = "running"
-    STOPPING = "stopping"
+    PAUSED = "paused"
     STOPPED = "stopped"
     ERROR = "error"
 
@@ -49,20 +48,25 @@ class MessageBus:
     """
 
     def __init__(self) -> None:
-        self._subscribers: Dict[str, List[Callable[[Message], None]]] = {}
+        self._subscribers: Dict[str, Dict[str, Callable[[Message], None]]] = {}
         self._published: List[Message] = []
 
-    def subscribe(self, topic: str, callback: Callable[[Message], None]) -> None:
-        """Registriert einen Callback für ein Topic."""
+    def subscribe(self, topic: str, subscriber_id: str, handler: Callable[[Message], None]) -> None:
+        """Registriert einen Handler für ein Topic."""
         if topic not in self._subscribers:
-            self._subscribers[topic] = []
-        self._subscribers[topic].append(callback)
+            self._subscribers[topic] = {}
+        self._subscribers[topic][subscriber_id] = handler
+
+    def unsubscribe(self, topic: str, subscriber_id: str) -> None:
+        """Entfernt einen Handler für ein Topic."""
+        if topic in self._subscribers:
+            self._subscribers[topic].pop(subscriber_id, None)
 
     def publish(self, message: Message) -> None:
         """Publiziert eine Nachricht an alle Subscriber des Topics."""
         self._published.append(message)
-        for callback in self._subscribers.get(message.topic, []):
-            callback(message)
+        for handler in self._subscribers.get(message.topic, {}).values():
+            handler(message)
 
     def get_published(self, topic: Optional[str] = None) -> List[Message]:
         """Gibt alle publizierten Nachrichten zurück, optional nach Topic gefiltert."""
@@ -85,7 +89,7 @@ class Agent:
     def __init__(self, agent_id: str, message_bus: MessageBus) -> None:
         self._agent_id = agent_id
         self._message_bus = message_bus
-        self._state = AgentState.IDLE
+        self._state = AgentState.INITIALIZED
         self._created_at = datetime.now(timezone.utc)
 
     @property
@@ -98,7 +102,7 @@ class Agent:
 
     def initialize(self) -> None:
         """Setup: Subscriptions und Ressourcen bereitstellen."""
-        self._state = AgentState.INITIALIZING
+        self._state = AgentState.INITIALIZED
 
     def start(self) -> None:
         """Agent startet die aktive Verarbeitung."""

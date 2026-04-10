@@ -88,7 +88,7 @@ class ExplorationAgent(Agent):
     def initialize(self) -> None:
         """Subscribt auf Evaluations-Ergebnisse."""
         super().initialize()
-        self._message_bus.subscribe(MONRY_EVALUATION_COMPLETED, self.process_message)
+        self._message_bus.subscribe(MONRY_EVALUATION_COMPLETED, self._agent_id, self.process_message)
 
     def start(self) -> None:
         """
