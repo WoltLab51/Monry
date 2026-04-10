@@ -175,6 +175,8 @@ class SignalEvaluator:
         elif condition == "bandwidth_squeeze":
             # Bandwidth squeeze: band width is narrower than 5% of middle
             bandwidth = upper - lower
+            if middle == 0.0:
+                return False
             return bandwidth / middle < 0.05
 
         return False
@@ -189,6 +191,8 @@ class SignalEvaluator:
 
         # Compare to a longer-term ATR average (2x period) for reference
         long_period = min(period * 2, len(candles) - 1)
+        if long_period < 1:
+            return False
         long_atr = ind.calculate_atr(candles, period=long_period)
 
         if long_atr is None or long_atr == 0.0:

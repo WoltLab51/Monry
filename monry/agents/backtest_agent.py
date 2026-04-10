@@ -22,7 +22,7 @@ from monry.analysis.market_phase_detector import detect_market_phase
 from monry.analysis.signal_evaluator import SignalEvaluator
 from monry.models.backtest_result import BacktestResult
 from monry.models.candle import Candle
-from monry.topics import MONRY_BACKTEST_COMPLETED, MONRY_STRATEGY_PROPOSED
+from monry.topics import MONRY_BACKTEST_COMPLETED, MONRY_MARKET_DATA_READY, MONRY_STRATEGY_PROPOSED
 
 
 class BacktestAgent(Agent):
@@ -63,11 +63,30 @@ class BacktestAgent(Agent):
         self._candles = list(candles)
 
     def initialize(self) -> None:
-        """Subscribe to monry.strategy.proposed."""
+        """Subscribe to monry.strategy.proposed and monry.market.data_ready."""
         self._message_bus.subscribe(
             MONRY_STRATEGY_PROPOSED, self._agent_id, self.process_message
         )
+        self._message_bus.subscribe(
+            MONRY_MARKET_DATA_READY, self._agent_id, self._on_market_data_ready
+        )
         self._state = AgentState.INITIALIZED
+
+    def _on_market_data_ready(self, message: Message) -> None:
+        """Receives candle data from MarketDataAgent and stores it for backtesting."""
+        payload = message.payload
+        candle_dicts = payload.get("candles", [])
+        self._candles = [
+            Candle(
+                date=c["date"],
+                open=c["open"],
+                high=c["high"],
+                low=c["low"],
+                close=c["close"],
+                volume=c["volume"],
+            )
+            for c in candle_dicts
+        ]
 
     def process_message(self, message: Message) -> None:
         """Processes a strategy proposal: runs backtest, publishes result."""
@@ -159,11 +178,11 @@ class BacktestAgent(Agent):
 
         sum_wins = sum(wins)
         sum_losses = abs(sum(losses))
-        profit_factor = (sum_wins / sum_losses) if sum_losses > 0.0 else 0.0
+        profit_factor = (sum_wins / sum_losses) if sum_losses > 0.0 else float('inf')
 
         mean_ret = sum(returns) / num_signals
         if num_signals > 1:
-            variance = sum((r - mean_ret) ** 2 for r in returns) / num_signals
+            variance = sum((r - mean_ret) ** 2 for r in returns) / (num_signals - 1)
             std_ret = math.sqrt(variance)
         else:
             std_ret = 0.0
