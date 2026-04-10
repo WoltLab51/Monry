@@ -8,7 +8,7 @@ from monry._genus_stubs import Message, MessageBus
 from monry.agents.backtest_agent import BacktestAgent
 from monry.data.fetcher import MarketDataFetcher
 from monry.models.candle import Candle
-from monry.topics import MONRY_BACKTEST_COMPLETED, MONRY_STRATEGY_PROPOSED
+from monry.topics import MONRY_BACKTEST_COMPLETED, MONRY_MARKET_DATA_READY, MONRY_STRATEGY_PROPOSED
 
 
 # ---------------------------------------------------------------------------
@@ -236,3 +236,71 @@ class TestMultipleStrategies:
         assert len(published) == 2
         ids = {msg.payload["strategy_id"] for msg in published}
         assert ids == {"s1", "s2"}
+
+
+# ---------------------------------------------------------------------------
+# Profit factor edge cases
+# ---------------------------------------------------------------------------
+
+
+class TestProfitFactorEdgeCases:
+    def test_profit_factor_is_inf_when_all_trades_win(self) -> None:
+        """When all trades are profitable (no losses), profit_factor must be inf."""
+        # Build candles that always go up so every trade is a win
+        candles: list[Candle] = []
+        price = 100.0
+        for i in range(300):
+            date = f"2020-{(i // 30) + 1:02d}-{(i % 30) + 1:02d}"
+            candles.append(
+                Candle(
+                    date=date,
+                    open=price,
+                    high=price + 2.0,
+                    low=price - 0.1,
+                    close=price + 1.0,
+                    volume=1_000_000,
+                )
+            )
+            price += 1.0
+
+        agent, bus = _make_agent(warmup_period=50, hold_period=5)
+        agent.set_candles(candles)
+        _publish_strategy(bus, [_rsi_rule(threshold=99)])
+
+        payload = bus.get_published(MONRY_BACKTEST_COMPLETED)[0].payload
+        if payload["num_signals"] > 0:
+            assert payload["profit_factor"] == float("inf")
+
+    def test_backtest_agent_receives_candles_from_bus(self) -> None:
+        """Publishing MONRY_MARKET_DATA_READY on the bus should set candles on BacktestAgent."""
+        agent, bus = _make_agent()
+
+        # Build candle dicts as MarketDataAgent would publish
+        raw_candles = _synthetic_candles(300)
+        candle_dicts = [
+            {
+                "date": c.date,
+                "open": c.open,
+                "high": c.high,
+                "low": c.low,
+                "close": c.close,
+                "volume": c.volume,
+            }
+            for c in raw_candles
+        ]
+
+        # Publish market data via bus
+        bus.publish(
+            Message(
+                topic=MONRY_MARKET_DATA_READY,
+                payload={"candles": candle_dicts},
+                sender_id="market_data_agent",
+            )
+        )
+
+        # Now publish a strategy — the agent should use the candles received from bus
+        _publish_strategy(bus, [_rsi_rule()])
+
+        published = bus.get_published(MONRY_BACKTEST_COMPLETED)
+        assert len(published) == 1
+        assert published[0].payload["num_signals"] > 0

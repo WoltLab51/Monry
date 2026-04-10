@@ -166,3 +166,50 @@ class TestUnknownIndicator:
         candles = _make_candles([100.0] * 30)
         rules = [{"name": "nonexistent", "parameters": {}, "condition": "something"}]
         assert evaluator.evaluate(rules, candles) is False
+
+
+# ---------------------------------------------------------------------------
+# Bollinger Band edge cases
+# ---------------------------------------------------------------------------
+
+
+class TestBollingerEdgeCases:
+    def test_bollinger_squeeze_with_zero_middle_returns_false(
+        self, evaluator: SignalEvaluator
+    ) -> None:
+        """If Bollinger middle band is 0.0, bandwidth_squeeze must not raise ZeroDivisionError."""
+        # All candles at 0.0 → middle = SMA = 0.0
+        candles = _make_candles([0.0] * 30)
+        rules = [
+            {
+                "name": "bollinger",
+                "parameters": {"period": 20, "std_dev": 2.0},
+                "condition": "bandwidth_squeeze",
+            }
+        ]
+        # Must not raise, must return False
+        result = evaluator.evaluate(rules, candles)
+        assert result is False
+
+
+# ---------------------------------------------------------------------------
+# ATR edge cases
+# ---------------------------------------------------------------------------
+
+
+class TestATREdgeCases:
+    def test_atr_with_single_candle_returns_false(
+        self, evaluator: SignalEvaluator
+    ) -> None:
+        """With only 1 candle, long_period would be 0 — must return False without error."""
+        candles = _make_candles([100.0])
+        rules = [
+            {
+                "name": "atr",
+                "parameters": {"period": 14},
+                "condition": "above_average",
+            }
+        ]
+        # Must not crash, must return False
+        result = evaluator.evaluate(rules, candles)
+        assert result is False
